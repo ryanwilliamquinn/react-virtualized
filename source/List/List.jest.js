@@ -5,6 +5,27 @@ import {Simulate} from 'react-dom/test-utils';
 import Immutable from 'immutable';
 import List from './List';
 import {defaultOverscanIndicesGetter} from '../Grid';
+import CellMeasurer, {CellMeasurerCache} from '../CellMeasurer';
+
+function mockClientWidthAndHeight({height, width}) {
+  const heightFn = jest.fn().mockReturnValue(height);
+  const widthFn = jest.fn().mockReturnValue(width);
+
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get: heightFn,
+  });
+
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+    configurable: true,
+    get: widthFn,
+  });
+
+  return {
+    heightFn,
+    widthFn,
+  };
+}
 
 describe('List', () => {
   const array = [];
@@ -20,6 +41,45 @@ describe('List', () => {
       overscanStartIndex: startIndex,
       overscanStopIndex: stopIndex,
     };
+  }
+
+  let cache;
+  beforeEach(() => {
+    cache = new CellMeasurerCache({
+      fixedWidth: true,
+    });
+  });
+
+  function getCachedMarkup(props = {}) {
+    function cachedRowRenderer({index, key, style, parent}) {
+      return (
+        <CellMeasurer cache={cache} key={key} parent={parent}>
+          <div className="listItem" style={style} key={key}>
+            {names.get(index)}
+          </div>
+        </CellMeasurer>
+      );
+    }
+
+    const rowHeightWrapper = params => {
+      const height = cache.rowHeight(params);
+      console.log('the damn height', height);
+      return height;
+    };
+
+    return (
+      <List
+        height={100}
+        overscanIndicesGetter={overscanIndicesGetter}
+        overscanRowCount={0}
+        rowCount={names.size}
+        rowRenderer={cachedRowRenderer}
+        rowHeight={rowHeightWrapper}
+        deferredMeasurementCache={cache}
+        width={100}
+        {...props}
+      />
+    );
   }
 
   function getMarkup(props = {}) {
@@ -47,7 +107,7 @@ describe('List', () => {
 
   describe('number of rendered children', () => {
     it('should render enough children to fill the view', () => {
-      const rendered = findDOMNode(render(getMarkup()));
+      const rendered = findDOMNode(render(getCachedMarkup()));
       expect(rendered.querySelectorAll('.listItem').length).toEqual(10);
     });
 
@@ -59,11 +119,11 @@ describe('List', () => {
 
   describe('scrollToPosition', () => {
     it('should scroll to the top', () => {
-      const instance = render(
-        getMarkup({
-          rowHeight: 10,
-        }),
-      );
+      mockClientWidthAndHeight({
+        height: 40,
+        width: 100,
+      });
+      const instance = render(getCachedMarkup());
       instance.scrollToPosition(100);
       const rendered = findDOMNode(instance);
       expect(rendered.textContent).toContain('Name 10');

@@ -552,7 +552,7 @@ class Grid extends React.PureComponent<Props, State> {
       (this.state.scrollDirectionVertical === SCROLL_DIRECTION_FORWARD
         ? rowIndex <= scrollToRow
         : rowIndex >= scrollToRow);
-
+    console.log('in recompute grid size');
     // Clear cell cache in case we are scrolling;
     // Invalid row heights likely mean invalid cached content as well.
     this._styleCache = {};

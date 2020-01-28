@@ -27,6 +27,26 @@ function getScrollbarSize20() {
   return 20;
 }
 
+function mockClientWidthAndHeight({height, width}) {
+  const heightFn = jest.fn().mockReturnValue(height);
+  const widthFn = jest.fn().mockReturnValue(width);
+
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    get: heightFn,
+  });
+
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+    configurable: true,
+    get: widthFn,
+  });
+
+  return {
+    heightFn,
+    widthFn,
+  };
+}
+
 describe('Grid', () => {
   function defaultCellRenderer({columnIndex, key, rowIndex, style}) {
     return (
@@ -65,6 +85,20 @@ describe('Grid', () => {
     it('should render enough children to fill the available area', () => {
       const rendered = findDOMNode(render(getMarkup()));
       expect(rendered.querySelectorAll('.gridItem').length).toEqual(20); // 5 rows x 4 columns
+    });
+
+    it('should render enough children to fill the available area with rowHeight function', () => {
+      const rendered = findDOMNode(
+        render(
+          getMarkup({
+            rowHeight: ({index}) => {
+              return (index + 1) * 2;
+            },
+          }),
+        ),
+      );
+      // 5 rows x 4 columns, with a rowHeight fn that doubles the height of the index
+      expect(rendered.querySelectorAll('.gridItem').length).toEqual(40);
     });
 
     it('should not render more rows than available if the area is not filled', () => {
@@ -337,7 +371,12 @@ describe('Grid', () => {
     });
 
     it('should scroll down to the middle', () => {
-      const grid = render(getMarkup({scrollToRow: 49}));
+      const grid = render(
+        getMarkup({
+          scrollToRow: 19,
+          rowHeight: ({index}) => (index + 1) * 2,
+        }),
+      );
       // 100 rows * 20 item height = 2,000 total item height
       // 5 rows can be visible at a time and :scrollTop is initially 0,
       // So the minimum amount of scrolling leaves the 50th item at the bottom (just scrolled into view).
@@ -527,7 +566,11 @@ describe('Grid', () => {
     });
 
     it('should support scrollToCell() public method', () => {
-      const grid = render(getMarkup());
+      const grid = render(
+        getMarkup({
+          rowHeight: ({index}) => (index + 1) * 2,
+        }),
+      );
       expect(grid.state.scrollLeft).toEqual(0);
       expect(grid.state.scrollTop).toEqual(0);
       grid.scrollToCell({
@@ -538,8 +581,10 @@ describe('Grid', () => {
       // 4 columns can be visible at a time and :scrollLeft is initially 0,
       // So the minimum amount of scrolling leaves the 25th item at the right (just scrolled into view).
       expect(grid.state.scrollLeft).toEqual(1050);
-      // 100 rows * 20 item height = 2,000 total item height
+      // 100 rows * 20 item height = 2,000 total item height * 2 = 4,000 total item height
       // 5 rows can be visible at a time and :scrollTop is initially 0,
+      // 100 px can be visible at a time and :scrollTop is initially 0,
+      // So the minimum amount of scrolling leaves the 50th item at the bottom (just scrolled into view).
       // So the minimum amount of scrolling leaves the 50th item at the bottom (just scrolled into view).
       expect(grid.state.scrollTop).toEqual(900);
 
