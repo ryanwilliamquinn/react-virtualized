@@ -8,12 +8,18 @@ import {defaultOverscanIndicesGetter} from '../Grid';
 import CellMeasurer, {CellMeasurerCache} from '../CellMeasurer';
 
 function mockClientWidthAndHeight({height, width}) {
-  const heightFn = jest.fn().mockReturnValue(height);
+  const heightFn = jest.fn().mockImplementation(() => {
+    console.log("'in the damn height function");
+    return height;
+  });
   const widthFn = jest.fn().mockReturnValue(width);
 
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
     configurable: true,
-    get: heightFn,
+    get: a => {
+      console.log('in the height fn');
+      return heightFn(a);
+    },
   });
 
   Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
@@ -62,6 +68,7 @@ describe('List', () => {
     }
 
     const rowHeightWrapper = params => {
+      console.log('the params', params);
       const height = cache.rowHeight(params);
       console.log('the damn height', height);
       return height;
@@ -119,11 +126,14 @@ describe('List', () => {
 
   describe('scrollToPosition', () => {
     it('should scroll to the top', () => {
-      mockClientWidthAndHeight({
+      const {heightFn, widthFn} = mockClientWidthAndHeight({
         height: 40,
         width: 100,
       });
-      const instance = render(getCachedMarkup());
+      expect(heightFn).toHaveBeenCalledTimes(0);
+      const cachedMarkup = getCachedMarkup();
+      const instance = render(cachedMarkup);
+      expect(heightFn).toHaveBeenCalledTimes(1);
       instance.scrollToPosition(100);
       const rendered = findDOMNode(instance);
       expect(rendered.textContent).toContain('Name 10');

@@ -33,7 +33,10 @@ function mockClientWidthAndHeight({height, width}) {
 
   Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
     configurable: true,
-    get: heightFn,
+    get: a => {
+      console.log('height fn');
+      heightFn(a);
+    },
   });
 
   Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
