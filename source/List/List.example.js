@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import Immutable from 'immutable';
 import PropTypes from 'prop-types';
 import * as React from 'react';
+import * as _ from 'lodash';
 import styles from './List.example.css';
 import AutoSizer from '../AutoSizer';
 import List from './List';
@@ -11,23 +12,28 @@ import {
   ContentBoxParagraph,
 } from '../demo/ContentBox';
 import {LabeledInput, InputRow} from '../demo/LabeledInput';
+import CellMeasurer, {CellMeasurerCache} from '../CellMeasurer';
 
 export default class ListExample extends React.PureComponent {
   static contextTypes = {
     list: PropTypes.instanceOf(Immutable.List).isRequired,
   };
 
+  cache = new CellMeasurerCache();
+
   constructor(props, context) {
     super(props, context);
+
+    this.listRef = React.createRef();
 
     this.state = {
       listHeight: 300,
       listRowHeight: 50,
       overscanRowCount: 10,
-      rowCount: context.list.size,
+      rowCount: 30000,
       scrollToIndex: undefined,
       showScrollingPlaceholder: false,
-      useDynamicRowHeight: false,
+      useDynamicRowHeight: true,
     };
 
     this._getRowHeight = this._getRowHeight.bind(this);
@@ -36,6 +42,18 @@ export default class ListExample extends React.PureComponent {
     this._onScrollToRowChange = this._onScrollToRowChange.bind(this);
     this._rowRenderer = this._rowRenderer.bind(this);
   }
+
+  componentDidUpdate(
+    prevProps: Readonly<P>,
+    prevState: Readonly<S>,
+    snapshot: SS,
+  ): void {
+    if (this.listRef && this.listRef.current && this.state.scrollToIndex) {
+      // this.listRef.current.scrollToRow(this.state.scrollToIndex);
+    }
+  }
+  // 14000
+  // 20000
 
   render() {
     const {
@@ -82,11 +100,11 @@ export default class ListExample extends React.PureComponent {
               checked={showScrollingPlaceholder}
               className={styles.checkbox}
               type="checkbox"
-              onChange={event =>
+              onChange={event => {
                 this.setState({
                   showScrollingPlaceholder: event.target.checked,
-                })
-              }
+                });
+              }}
             />
             Show scrolling placeholder?
           </label>
@@ -143,16 +161,14 @@ export default class ListExample extends React.PureComponent {
           <AutoSizer disableHeight>
             {({width}) => (
               <List
-                ref="List"
+                ref={this.listRef}
                 className={styles.List}
                 height={listHeight}
                 overscanRowCount={overscanRowCount}
                 noRowsRenderer={this._noRowsRenderer}
                 rowCount={rowCount}
-                rowHeight={
-                  useDynamicRowHeight ? this._getRowHeight : listRowHeight
-                }
                 rowRenderer={this._rowRenderer}
+                rowHeight={this.cache.rowHeight}
                 scrollToIndex={scrollToIndex}
                 width={width}
               />
@@ -163,6 +179,7 @@ export default class ListExample extends React.PureComponent {
     );
   }
 
+  // 14000
   _getDatum(index) {
     const {list} = this.context;
 
@@ -197,17 +214,24 @@ export default class ListExample extends React.PureComponent {
     this.setState({scrollToIndex});
   }
 
-  _rowRenderer({index, isScrolling, key, style}) {
+  _rowRenderer({index, isScrolling, key, style, parent}) {
     const {showScrollingPlaceholder, useDynamicRowHeight} = this.state;
 
     if (showScrollingPlaceholder && isScrolling) {
       return (
-        <div
-          className={clsx(styles.row, styles.isScrollingPlaceholder)}
+        <CellMeasurer
+          cache={this.cache}
           key={key}
-          style={style}>
-          Scrolling...
-        </div>
+          parent={parent}
+          columnIndex={0}
+          rowIndex={index}>
+          <div
+            className={clsx(styles.row, styles.isScrollingPlaceholder)}
+            key={key}
+            style={style}>
+            Scrolling...
+          </div>
+        </CellMeasurer>
       );
     }
 
@@ -220,36 +244,47 @@ export default class ListExample extends React.PureComponent {
         case 75:
           additionalContent = <div>It is medium-sized.</div>;
           break;
-        case 100:
+        case 10000:
           additionalContent = (
             <div>
               It is large-sized.
               <br />
               It has a 3rd row.
+              <br />
+              And a fourth row
             </div>
           );
           break;
       }
     }
 
+    console.log('rendering a row');
     return (
-      <div className={styles.row} key={key} style={style}>
-        <div
-          className={styles.letter}
-          style={{
-            backgroundColor: datum.color,
-          }}>
-          {datum.name.charAt(0)}
+      <CellMeasurer
+        cache={this.cache}
+        key={key}
+        parent={parent}
+        columnIndex={0}
+        rowIndex={index}>
+        <div className={styles.row} key={key} style={style}>
+          Ryan
+          <div
+            className={styles.letter}
+            style={{
+              backgroundColor: datum.color,
+            }}>
+            {datum.name.charAt(0)}
+          </div>
+          <div>
+            <div className={styles.name}>{datum.name}</div>
+            <div className={styles.index}>This is row {index}</div>
+            {additionalContent}
+          </div>
+          {useDynamicRowHeight && (
+            <span className={styles.height}>{datum.size}px</span>
+          )}
         </div>
-        <div>
-          <div className={styles.name}>{datum.name}</div>
-          <div className={styles.index}>This is row {index}</div>
-          {additionalContent}
-        </div>
-        {useDynamicRowHeight && (
-          <span className={styles.height}>{datum.size}px</span>
-        )}
-      </div>
+      </CellMeasurer>
     );
   }
 }
